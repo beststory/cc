@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Protocol
+from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 from vector_store import VectorStore, SearchResults
 
@@ -88,7 +88,7 @@ class CourseSearchTool(Tool):
     def _format_results(self, results: SearchResults) -> str:
         """Format search results with course and lesson context"""
         formatted = []
-        sources = []  # Track sources for the UI
+        sources_with_links = []  # Track sources with links for the UI
         
         for doc, meta in zip(results.documents, results.metadata):
             course_title = meta.get('course_title', 'unknown')
@@ -100,18 +100,109 @@ class CourseSearchTool(Tool):
                 header += f" - Lesson {lesson_num}"
             header += "]"
             
-            # Track source for the UI
-            source = course_title
-            if lesson_num is not None:
-                source += f" - Lesson {lesson_num}"
-            sources.append(source)
+            # Track source with link information for the UI
+            source_info = {
+                "text": course_title,
+                "link": None
+            }
             
+            if lesson_num is not None:
+                source_info["text"] += f" - Lesson {lesson_num}"
+                # Get lesson link from vector store
+                lesson_link = self.store.get_lesson_link(course_title, lesson_num)
+                if lesson_link:
+                    source_info["link"] = lesson_link
+            
+            sources_with_links.append(source_info)
             formatted.append(f"{header}\n{doc}")
         
-        # Store sources for retrieval
-        self.last_sources = sources
+        # Store sources with links for retrieval
+        self.last_sources = sources_with_links
         
         return "\n\n".join(formatted)
+
+class CourseSyllabulTool(Tool):
+    """Tool for getting course syllabus information (title, link, lesson list)"""
+    
+    def __init__(self, vector_store: VectorStore):
+        self.store = vector_store
+    
+    def get_tool_definition(self) -> Dict[str, Any]:
+        """Return Anthropic tool definition for this tool"""
+        return {
+            "name": "get_course_syllabus",
+            "description": "Get course syllabus information including title, link, and complete lesson list with titles and numbers",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "course_name": {
+                        "type": "string",
+                        "description": "Course title (partial matches work, e.g. 'MCP', 'Introduction')"
+                    }
+                },
+                "required": ["course_name"]
+            }
+        }
+    
+    def execute(self, course_name: str) -> str:
+        """
+        Execute the syllabus tool with given course name.
+        
+        Args:
+            course_name: Course title or partial course title
+            
+        Returns:
+            Formatted syllabus information or error message
+        """
+        # Step 1: Resolve course name using existing logic
+        resolved_title = self.store._resolve_course_name(course_name)
+        if not resolved_title:
+            return f"강의를 찾을 수 없습니다: '{course_name}'"
+        
+        # Step 2: Get course metadata
+        try:
+            all_courses = self.store.get_all_courses_metadata()
+            course_data = None
+            
+            for course in all_courses:
+                if course.get('title') == resolved_title:
+                    course_data = course
+                    break
+            
+            if not course_data:
+                return f"강의 메타데이터를 찾을 수 없습니다: '{resolved_title}'"
+            
+            # Step 3: Format syllabus information
+            return self._format_syllabus(course_data)
+            
+        except Exception as e:
+            return f"강의 계획서 조회 중 오류 발생: {str(e)}"
+    
+    def _format_syllabus(self, course_data: Dict[str, Any]) -> str:
+        """Format course syllabus information"""
+        title = course_data.get('title', '제목 없음')
+        instructor = course_data.get('instructor', '강사 정보 없음')
+        course_link = course_data.get('course_link', '링크 없음')
+        lessons = course_data.get('lessons', [])
+        
+        # Build formatted output
+        result = []
+        result.append(f"# {title}")
+        result.append(f"**강사**: {instructor}")
+        result.append(f"**강의 링크**: {course_link}")
+        result.append("")
+        result.append("## 강의 목록")
+        
+        if lessons:
+            for lesson in lessons:
+                lesson_num = lesson.get('lesson_number', 'N/A')
+                lesson_title = lesson.get('lesson_title', '제목 없음')
+                result.append(f"{lesson_num}. {lesson_title}")
+        else:
+            result.append("강의 목록이 없습니다.")
+        
+        return "\n".join(result)
+
 
 class ToolManager:
     """Manages available tools for the AI"""
