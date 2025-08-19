@@ -5,7 +5,7 @@ const API_URL = '/api';
 let currentSessionId = null;
 
 // DOM elements
-let chatMessages, chatInput, sendButton, totalCourses, courseTitles, newChatButton;
+let chatMessages, chatInput, sendButton, totalCourses, courseTitles, newChatButton, themeToggle;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,8 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
     newChatButton = document.getElementById('newChatButton');
+    themeToggle = document.getElementById('themeToggle');
     
     setupEventListeners();
+    initializeTheme();
     createNewSession();
     loadCourseStats();
 });
@@ -33,6 +35,14 @@ function setupEventListeners() {
     // New chat button
     newChatButton.addEventListener('click', clearChat);
     
+    // Theme toggle button
+    themeToggle.addEventListener('click', toggleTheme);
+    themeToggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleTheme();
+        }
+    });
     
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
@@ -237,5 +247,49 @@ async function loadCourseStats() {
         if (courseTitles) {
             courseTitles.innerHTML = '<span class="error">Failed to load courses</span>';
         }
+    }
+}
+
+// Theme Management Functions
+function initializeTheme() {
+    // Check for saved theme preference or default to dark theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    applyTheme(savedTheme);
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    // Add transition animation
+    themeToggle.classList.add('transitioning');
+    
+    // Apply new theme
+    applyTheme(newTheme);
+    
+    // Save preference
+    localStorage.setItem('theme', newTheme);
+    
+    // Remove animation class after animation completes
+    setTimeout(() => {
+        themeToggle.classList.remove('transitioning');
+    }, 300);
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    // Update theme toggle icon
+    const themeIcon = document.querySelector('.theme-icon');
+    if (themeIcon) {
+        themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    
+    // Update button title and aria-label
+    const toggleButton = document.getElementById('themeToggle');
+    if (toggleButton) {
+        const newLabel = theme === 'dark' ? '라이트 테마로 전환' : '다크 테마로 전환';
+        toggleButton.setAttribute('aria-label', newLabel);
+        toggleButton.setAttribute('title', newLabel);
     }
 }
