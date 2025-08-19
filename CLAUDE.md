@@ -9,8 +9,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 uv sync
 
+# Install development tools
+uv sync --extra dev
+
 # Set up environment
 # Create .env file with: ANTHROPIC_API_KEY=your_key_here
+```
+
+### Code Quality Tools
+```bash
+# 코드 포맷팅 (Black + isort)
+make format
+
+# 코드 품질 검사 (flake8 + mypy)
+make lint
+
+# 테스트 실행
+make test
+
+# 전체 품질 검사 (포맷팅 + 린트 + 테스트)
+make check
+
+# 생성된 파일 정리
+make clean
+
+# 사용 가능한 모든 명령어 보기
+make help
 ```
 
 ### Running the Application
@@ -98,10 +122,16 @@ Course documents must follow the structured format in `/docs/`. The document pro
 
 ## Development Context
 
-- **No testing framework** is currently implemented
-- **No linting configuration** is present  
-- Uses `uv` as package manager (not pip/poetry)
+- **Testing framework**: pytest with coverage reporting
+- **Code quality tools**: Black, isort, flake8, mypy configured
+- **Package manager**: Uses `uv` (not pip/poetry) - 항상 uv를 사용하고 pip은 사용하지 말아
 - **Auto-reloading** enabled in development mode
 - Documents auto-load on server startup from `/docs/` directory
 - Vector database is created automatically on first run
-- 항상 uv 를 사용하고 pip 은 사용하지 말아
+
+### Code Quality Standards
+- **Formatting**: Black (line length: 88)
+- **Import sorting**: isort (Black profile)
+- **Linting**: flake8 with E203, W503 ignored
+- **Type checking**: mypy with strict settings
+- **Test coverage**: Target ≥80% with HTML reports
