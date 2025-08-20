@@ -3,6 +3,7 @@ import sys
 import os
 from unittest.mock import Mock, MagicMock, patch
 from typing import List, Dict, Any
+from fastapi.testclient import TestClient
 
 # Add backend to sys.path for importing modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -202,3 +203,141 @@ def test_config():
     config.MAX_HISTORY = 2
     config.CHROMA_PATH = "./test_chroma_db"
     return config
+
+
+@pytest.fixture
+def mock_rag_system():
+    """Mock RAG system for API testing"""
+    mock_rag = Mock()
+    
+    # Mock query method
+    mock_rag.query.return_value = (
+        "이것은 테스트 응답입니다.",
+        [
+            {
+                "content": "테스트 내용입니다.",
+                "course_title": "테스트 코스",
+                "lesson_number": 1,
+                "lesson_link": "https://example.com/lesson1"
+            }
+        ]
+    )
+    
+    # Mock session manager
+    mock_rag.session_manager = Mock()
+    mock_rag.session_manager.create_session.return_value = "test_session_123"
+    
+    # Mock get_course_analytics
+    mock_rag.get_course_analytics.return_value = {
+        "total_courses": 2,
+        "course_titles": ["테스트 코스 1", "테스트 코스 2"]
+    }
+    
+    # Mock add_course_folder
+    mock_rag.add_course_folder.return_value = (2, 10)  # 2 courses, 10 chunks
+    
+    return mock_rag
+
+
+@pytest.fixture
+def test_client(mock_rag_system):
+    """FastAPI test client with mocked dependencies"""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from pydantic import BaseModel
+    from typing import List, Optional, Dict, Any
+    
+    # Create test app without static file mounting
+    test_app = FastAPI(title="Test Course Materials RAG System")
+    
+    # Add CORS middleware
+    test_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Request/Response models
+    class QueryRequest(BaseModel):
+        query: str
+        session_id: Optional[str] = None
+        
+    class QueryResponse(BaseModel):
+        answer: str
+        sources: List[Dict[str, Any]]
+        session_id: str
+        
+    class CourseStats(BaseModel):
+        total_courses: int
+        course_titles: List[str]
+        
+    class NewSessionResponse(BaseModel):
+        session_id: str
+    
+    # Mock the global rag_system
+    rag_system = mock_rag_system
+    
+    # API endpoints
+    @test_app.post("/api/query", response_model=QueryResponse)
+    async def query_documents(request: QueryRequest):
+        session_id = request.session_id
+        if not session_id:
+            session_id = rag_system.session_manager.create_session()
+        
+        answer, sources = rag_system.query(request.query, session_id)
+        
+        return QueryResponse(
+            answer=answer,
+            sources=sources,
+            session_id=session_id
+        )
+    
+    @test_app.get("/api/courses", response_model=CourseStats)
+    async def get_course_stats():
+        analytics = rag_system.get_course_analytics()
+        return CourseStats(
+            total_courses=analytics["total_courses"],
+            course_titles=analytics["course_titles"]
+        )
+    
+    @test_app.post("/api/new-session", response_model=NewSessionResponse)
+    async def create_new_session():
+        session_id = rag_system.session_manager.create_session()
+        return NewSessionResponse(session_id=session_id)
+    
+    @test_app.get("/")
+    async def root():
+        return {"message": "Course Materials RAG System API"}
+    
+    # Create test client
+    return TestClient(test_app)
+
+
+@pytest.fixture
+def api_query_payload():
+    """Sample API query payload"""
+    return {
+        "query": "MCP란 무엇인가요?",
+        "session_id": "test_session_123"
+    }
+
+
+@pytest.fixture
+def expected_query_response():
+    """Expected API query response structure"""
+    return {
+        "answer": str,
+        "sources": list,
+        "session_id": str
+    }
+
+
+@pytest.fixture
+def expected_courses_response():
+    """Expected API courses response structure"""
+    return {
+        "total_courses": int,
+        "course_titles": list
+    }
