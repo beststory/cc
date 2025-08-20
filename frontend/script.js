@@ -279,12 +279,6 @@ function toggleTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     
-    // Update theme toggle icon
-    const themeIcon = document.querySelector('.theme-icon');
-    if (themeIcon) {
-        themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
-    }
-    
     // Update button title and aria-label
     const toggleButton = document.getElementById('themeToggle');
     if (toggleButton) {

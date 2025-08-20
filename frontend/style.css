@@ -530,13 +530,13 @@ header h1 {
 
 /* Theme Toggle Button */
 .theme-toggle {
-    width: 100%;
-    padding: 0.75rem;
+    width: auto;
+    padding: 0.5rem 0.75rem;
     background: var(--surface);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 8px;
     color: var(--text-primary);
-    font-size: 1.2rem;
+    font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
@@ -544,6 +544,7 @@ header h1 {
     justify-content: center;
     position: relative;
     overflow: hidden;
+    font-weight: 600;
 }
 
 .theme-toggle:focus {
@@ -562,15 +563,17 @@ header h1 {
     transform: translateY(0);
 }
 
-.theme-icon {
+.theme-text {
     transition: transform 0.3s ease, opacity 0.3s ease;
     display: inline-block;
-    font-size: 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 /* Theme toggle animation */
-.theme-toggle.transitioning .theme-icon {
-    transform: rotate(360deg);
+.theme-toggle.transitioning .theme-text {
+    transform: scale(0.95);
 }
 
 /* New Chat Button */
